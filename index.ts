@@ -34,6 +34,7 @@ interface CreateIssueArgs {
   status?: string;
   labels?: string[];
   estimate?: number;
+  assigneeId?: string;
 }
 
 interface UpdateIssueArgs {
@@ -44,6 +45,7 @@ interface UpdateIssueArgs {
   status?: string;
   labels?: string[];
   estimate?: number;
+  assigneeId?: string;
 }
 
 interface SearchIssuesArgs {
@@ -56,6 +58,7 @@ interface SearchIssuesArgs {
   priority?: number;
   estimate?: number;
   includeArchived?: boolean;
+  assignee?: string;
 }
 
 interface GetUserIssuesArgs {
@@ -343,6 +346,7 @@ class LinearMCPClient {
       stateId: args.status,
       labelIds: args.labels,
       estimate: args.estimate,
+      assigneeId: args.assigneeId,
     });
 
     const issue = await issuePayload.issue;
@@ -361,6 +365,7 @@ class LinearMCPClient {
       stateId: args.status,
       labelIds: args.labels,
       estimate: args.estimate,
+      assigneeId: args.assigneeId,
     });
 
     const updatedIssue = await updatePayload.issue;
@@ -610,7 +615,7 @@ const createIssueTool: Tool = {
   description: `Creates a new Linear issue with specified details.
 Use this to create tickets for tasks, bugs, or feature requests. 
 Returns the created issue's identifier and URL. 
-Required fields are title and teamId, with optional description, status, labels, and estimate.
+Required fields are title and teamId, with optional description, status, labels, estimate, and assignee.
 For optional fields, do your best to provide labels and a reasonable estimate. 
 Keep the description as simple as you can based on the input.`,
   inputSchema: {
@@ -623,6 +628,7 @@ Keep the description as simple as you can based on the input.`,
       status: { type: "string", description: "Issue status" },
       labels: { type: "array", description: "List of label ids" },
       estimate: { type: "number", description: "Estimate points" },
+      assigneeId: { type: "string", description: "Assignee user ID" },
     },
     required: ["title", "teamId"],
   },
@@ -630,8 +636,12 @@ Keep the description as simple as you can based on the input.`,
 
 const updateIssueTool: Tool = {
   name: "linear_update_issue",
-  description:
-    "Updates an existing Linear issue's properties. Use this to modify issue details like title, description, priority, or status. Requires the issue ID and accepts any combination of updatable fields. Returns the updated issue's identifier and URL.",
+  description: `
+  Updates an existing Linear issue's properties. 
+  Use this to modify issue details like title, description, priority, or status. 
+  Requires the issue ID and accepts any combination of updatable fields. 
+  Returns the updated issue's identifier and URL.
+  `,
   inputSchema: {
     type: "object",
     properties: {
@@ -642,6 +652,7 @@ const updateIssueTool: Tool = {
       status: { type: "string", description: "New status" },
       labels: { type: "array", items: { type: "string" } },
       estimate: { type: "number", description: "Estimate points" },
+      assigneeId: { type: "string", description: "Assignee user ID" },
     },
     required: ["id"],
   },
@@ -820,6 +831,7 @@ Tool Usage:
   - priority levels: 1=urgent, 2=high, 3=normal, 4=low
   - status must match exact Linear workflow state names (e.g., "In Progress", "Done")
   - estimates should be one from fibonacci (e.g., 1, 2, 3, 5, 8)
+  - assigneeId should be a valid user id
   - labels array should contain valid label ids
 
 - linear_update_issue:
@@ -827,6 +839,7 @@ Tool Usage:
   - only include fields you want to change
   - status changes must use valid state IDs from the team's workflow
   - estimates should be one from fibonacci (e.g., 1, 2, 3, 5, 8)
+  - assigneeId should be a valid user id
   - labels array should contain valid label ids
 
 - linear_search_issues:
@@ -1072,6 +1085,7 @@ async function main() {
                 status: args.status ? String(args.status) : undefined,
                 labels: args.labels ? (args.labels as string[]) : undefined,
                 estimate: args.estimate ? Number(args.estimate) : undefined,
+                assigneeId: args.assigneeId ? String(args.assigneeId) : undefined,
               };
 
               const issue = await linearClient.createIssue(createArgs);
@@ -1079,6 +1093,7 @@ async function main() {
                 content: [
                   {
                     type: "text",
+                    args: `${createArgs}`,
                     text: `Created issue ${issue.identifier}: ${issue.title}\nURL: ${issue.url}`,
                     metadata: baseResponse,
                   },
@@ -1101,6 +1116,7 @@ async function main() {
                 status: args.status ? String(args.status) : undefined,
                 labels: args.labels ? (args.labels as string[]) : undefined,
                 estimate: args.estimate ? Number(args.estimate) : undefined,
+                assigneeId: args.assigneeId ? String(args.assigneeId) : undefined,
               };
 
               const issue = await linearClient.updateIssue(updateArgs);
@@ -1108,7 +1124,7 @@ async function main() {
                 content: [
                   {
                     type: "text",
-                    text: `Updated issue ${issue.identifier}\nURL: ${issue.url}`,
+                    text: `Updated issue ${issue.identifier}\nURL: ${issue.url}\nArgs: ${JSON.stringify(updateArgs, null, 2)}`,
                     metadata: baseResponse,
                   },
                 ],
